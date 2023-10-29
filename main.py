@@ -7,7 +7,7 @@ db = SessionLocal()
 
 app = FastAPI()
 
-
+app.add_middleware(SessionMiddleware, secret_key="some-random-string", max_age=None)
 app.include_router(users.authusers)
 app.include_router(transports.transportrout)
 app.include_router(rents.rentscontr)
