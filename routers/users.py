@@ -14,7 +14,7 @@ authusers = APIRouter(prefix="/api/Account",
     responses={404: {"description": "Not found"}})
 
 @authusers.get('/Me', response_model=Userout)
-async def meuser(response:Response,user:UserTable = Depends(get_current_user)):
+async def meuser(user:UserTable = Depends(get_current_user)):
     # response.headers['Authorization'] =
    return user
 

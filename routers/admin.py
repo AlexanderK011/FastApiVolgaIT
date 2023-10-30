@@ -182,7 +182,8 @@ async def updTransp(id:int, transport: TransportCreateAdmin, adminuser = Depends
 @admintransp.delete('/Transport/{id}')
 async def delTransp(id:int,adminuser = Depends(get_current_user)):
     if adminuser.isAdmin:
-        transport = db.query(Transport).filter(Transport.id == id).delete()
+        transport = db.query(Transport).filter(Transport.id == id).first()
+        db.delete(transport)
         db.commit()
         return transport
 
@@ -237,11 +238,21 @@ async def endRentAdm(rentId:int,transportcoord:TransportCoord, adminuser = Depen
     if adminuser.isAdmin:
         rentdb = db.query(Rent).filter(Rent.id == rentId).first()
         if rentdb and rentdb.timeEnd is None:
-            print(rentdb.timeEnd)
+            timeend = datetime.utcnow()
+            rentdb.timeStart = datetime.fromisoformat(rentdb.timeStart)
+            if rentdb.rentType == 'minutes':
+                finalprice = round((timeend - rentdb.timeStart).total_seconds() / 60 * rentdb.priceOfUnit)
+            elif rentdb.rentType == 'days':
+                finalprice = (timeend - rentdb.timeStart).days() * rentdb.priceOfUnit
+            else:
+                finalprice = None
+            user = db.query(UserTable).filter(UserTable.id == rentdb.userId).first()
             tr = db.query(Transport).filter(Transport.id == rentdb.transport_id).first()
             tr.latitude = transportcoord.latitude
             tr.longitude = transportcoord.longitude
             rentdb.timeEnd =datetime.utcnow()
+            rentdb.finalPrice = finalprice
+            user.balance = user.balance - finalprice
             db.add(tr)
             db.commit()
             return transportcoord

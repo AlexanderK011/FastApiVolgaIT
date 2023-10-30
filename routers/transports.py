@@ -1,12 +1,12 @@
 from fastapi import APIRouter
-from fastapi import Depends, HTTPException, status, Response,Request
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import Depends, HTTPException, status
+
 
 from deps import get_current_user
 from deps import db
 from models.models import Transport
 from schemas import TransportUpdate, TransportCreate
-from utils import create_refresh_token, create_access_token, verify_password, get_hashed_password
+
 
 transportrout = APIRouter(prefix="/api/Transport",
     tags=["TransportController"],
@@ -36,7 +36,7 @@ async def transport_post(transport : TransportCreate,user = Depends(get_current_
                          ownerId = user.id
                          )
         try:
-            db.add(transport)
+            db.add(transpost)
             db.commit()
         except:
             db.rollback()
@@ -51,7 +51,7 @@ async def transport_post(transport : TransportCreate,user = Depends(get_current_
 @transportrout.put('/{tid}', response_model = TransportUpdate)
 async def updtrans(tid:int, transp: TransportUpdate,user = Depends(get_current_user)):
     # race_car_record = db.query(Transport).filter(Transport.id == tid).update(dict(transp))
-    transpdb = db.query(Transport).filter(Transport.id==tid).filter(Transport.user_id == user.id).first()
+    transpdb = db.query(Transport).filter(Transport.id==tid).filter(Transport.ownerId == user.id).first()
     if not transpdb:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -81,13 +81,13 @@ async def updtrans(tid:int, transp: TransportUpdate,user = Depends(get_current_u
 #только владелец транспорта
 @transportrout.delete('/{tr_id}')
 async def deletetransp(tr_id:int, user = Depends(get_current_user)):
-    if not db.query(Transport).filter(Transport.user_id == user.id).first():
+    if not db.query(Transport).filter(Transport.ownerId == user.id).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Not your transport'
         )
-    delet=db.query(Transport).filter(Transport.id == tr_id).filter(Transport.user_id == user.id).delete()
+    delet=db.query(Transport).filter(Transport.id == tr_id).filter(Transport.ownerId == user.id).delete()
     db.commit()
-    return db.query(Transport).all()
+    return delet
 
 

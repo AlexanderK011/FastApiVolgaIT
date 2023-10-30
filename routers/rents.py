@@ -2,14 +2,13 @@ import math
 from datetime import datetime
 
 from fastapi import APIRouter
-from fastapi import Depends, HTTPException, status, Response,Request
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import Depends, HTTPException, status
 
 from deps import get_current_user
 from deps import db
 from models.models import Transport, Rent
 from schemas import TransportCoord, Renttype, Rentinfo
-from utils import create_refresh_token, create_access_token, verify_password, get_hashed_password
+
 
 
 rentscontr = APIRouter(prefix="/api/Rent",
@@ -36,7 +35,7 @@ async def getrenttransport(lat:float, long:float, radius:float, type:str):
 
 @rentscontr.get('/{rentId}',response_model=Rentinfo)
 async def infoaborent(rentId:int,user = Depends(get_current_user)):
-    if db.query(Rent).filter(Rent.id == rentId).filter(Rent.user_id == user.id).first() or db.query(Transport).filter(Transport.user_id == user.id).first():
+    if db.query(Rent).filter(Rent.id == rentId).filter(Rent.userId == user.id).first() and db.query(Transport).filter(Transport.ownerId == user.id).first():
         rent = db.query(Rent).filter(Rent.id == rentId).first()
         return rent
     else:
@@ -45,14 +44,14 @@ async def infoaborent(rentId:int,user = Depends(get_current_user)):
             detail='you dont have access'
         )
 
-@rentscontr.get('/MyHistory')
+@rentscontr.get('/MyHistory/')
 async def myrenthistory(user = Depends(get_current_user)):
-    rent = db.query(Rent).filter(Rent.user_id == user.id).all()
+    rent = db.query(Rent).filter(Rent.userId == user.id).all()
     return rent
 
 @rentscontr.get('/TransportHistory/{transportId}')
 async def historyrenttransp(transportId : int,user = Depends(get_current_user)):
-    if db.query(Transport).filter(Transport.user_id == user.id).filter(Transport.id == transportId).first():
+    if db.query(Transport).filter(Transport.ownerId == user.id).filter(Transport.id == transportId).first():
         rent = db.query(Rent).filter(Rent.transport_id == transportId).all()
         return rent
     else:
@@ -99,10 +98,19 @@ async def createrent(transportId:int,rent: Renttype,user = Depends(get_current_u
 async def rentend(rentId:int,transportcoord:TransportCoord, user = Depends(get_current_user)):
     rentdb= db.query(Rent).filter(Rent.userId == user.id).filter(Rent.id == rentId).first()
     if rentdb and rentdb.timeEnd is None:
+        timeend = datetime.utcnow()
+        rentdb.timeStart = datetime.fromisoformat(rentdb.timeStart)
+        if rentdb.rentType == 'minutes':
+            finalprice = round((timeend - rentdb.timeStart).total_seconds()/60*rentdb.priceOfUnit)
+        elif rentdb.rentType == 'days':
+            finalprice = (timeend - rentdb.timeStart).days()*rentdb.priceOfUnit
+        else:
+            finalprice = None
         tr = db.query(Transport).filter(Transport.id == rentdb.transport_id).first()
         tr.latitude=transportcoord.latitude
         tr.longitude=transportcoord.longitude
-        rentdb.timeEnd = datetime.utcnow()
+        rentdb.timeEnd = timeend
+        rentdb.finalPrice = finalprice
         db.add(tr)
         db.commit()
         return transportcoord

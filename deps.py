@@ -9,9 +9,7 @@ from utils import verify_jwt_token
 db= SessionLocal()
 reuseable_oauth = OAuth2PasswordBearer(tokenUrl='/api/Account/SignIn')
 
-async def get_current_user(response: Response,request : Request,token: str = Depends(reuseable_oauth)):
-    # access_token = request.session.get("access_token")
-    # response.headers['Authorization'] = access_token
+async def get_current_user(token: str = Depends(reuseable_oauth)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
